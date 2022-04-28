@@ -1,0 +1,53 @@
+\documentclass[nocopyrightspace,12pt,onecolumn,authoryear,preprint]{sigplanconf}
+
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{listings}
+\usepackage{url}
+\usepackage{multicol}
+
+\Urlmuskip=0mu plus 1mu
+
+\begin{document}
+\input{tool-listings}
+
+\title{Project - Parallel Wave Function Collapse Terrain Generation using CUDA and MPI}
+\subtitle{COMP 4901Q: High Performance Computing (HPC) Spring 2022}
+
+\authorinfo{CHEUK NAM TSANG}
+           {HKUST}
+           {cntsangaa@connect.ust.hk}
+
+\maketitle
+
+\section{Introduction}
+\input{introduction}
+
+\section{Related works}
+\input{review}
+
+\section{Target Platform}
+\input{target_platforms.tex}
+
+\section{Application Objectives}
+\input{application}
+
+\section{Baseline Implementation}
+\input{baseline}
+
+\section{Parallel Implementation}
+\input{implementation}
+
+\section{Performance Scaling}
+\input{performance_scaling.tex}
+
+\section{Limitations}
+\input{limitations.tex}
+
+\section{Algorithm Tuning}
+\input{tuning.tex}
+
+\bibliographystyle{abbrvnat}
+\bibliography{bibliography.bib}
+
+\end{document}

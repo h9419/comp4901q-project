@@ -1,0 +1,12 @@
+The serial program will first initialize the map with user specified size, and then start the wave function collapse algorithm. After collapsing state of each individual cell, All neighbors with more than one valid states will need to be updated with the following formula:
+
+\[
+lowerBound = max(lowerBound, collapsed.value - ManhattanDistance(collapsed, this))
+\]
+\[
+upperBound = min(upperBound, collapsed.value + ManhattanDistance(collapsed, this))
+\]
+
+Since there are only 10 states, only cells with a Manhattan distance of 9 or below will need to have their states updated. This propagation optimization reduces the complexity but still consumes majority of the runtime in previous studies. A cell is randomly chosen to has its state collapsed until all cells has a definite state. 
+
+Once the execution has completed, the solution will be verified against the rule set. In addition, user can specify that the generated result to be saved to a bitmap image file so that it can be read by other software for visualization, as can be seen in figure 1 and 2.

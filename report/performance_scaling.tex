@@ -1,0 +1,12 @@
+% The algorithm proposed above has the following runtime complexity.
+
+% \[T_{parallel} = T_{initialization} + T_{propagation} + N ( T_{calculation} + T_{propagation} ) \]
+% \[T_{parallel} = \lceil\frac{t_{1}}{P_{1} * P_{2}} \rceil + (N+1) ( 2 * t_{intra} * log_{2} (P_{1}) + t_{inter} * log_{2} (P_{2}) ) + N ((t_{2} + t_{3}) * \lceil \frac{m}{P_{1} * P_{2}} \rceil ) \]
+
+% This is a form of strong scaling as the algorithm is attempting to identify part of the calculation that can be parallelized so that we can increase the number of processors to reduce computation time. This closely aligns with Amdahl's law
+
+% Following is the projected speedup with the increased number of servers in the cluster and each server has a fixed number of 16 processors. batch size m and iteration number N are set to constant numerical values of 256 and 10000.
+
+\begin{center}
+\includegraphics[width=6cm]{images/speedup.png}
+\end{center}

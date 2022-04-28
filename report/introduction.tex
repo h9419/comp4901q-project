@@ -1,0 +1,21 @@
+
+Procedural content generation means methods of generating content based on set rules. Commonly used in video games such as Minecraft and Crypt of the NecroDancer, procedural generation of game environment can allow game developers to design a set of rules that can generate unique permutations of environment for each player without manually designing all of the environment features.
+
+Wave Function Collapse Algorithm is one of the tools for generative design of video game level environment such as terrains \cite{moreau_2020}. The algorithm is similar to a game of Sodoku. In an empty 9x9 board, all tiles can be all of the 9 numbers. When one number is placed, tiles on the same row, same column or same 3x3 square can no longer be assigned the same number. 
+
+% Given gid of tiles and a set of rules for adjacency between different kinds of tiles, the algorithm first eliminates all forbidden cases for a type of tile to be in one location. Then choose the tile with the lowest number of choices or lowest entropy. A not yet forbidden type is randomly asserted to the location and all the tiles recalculates their remaining possible types. 
+
+Following are the procedures for the algorithm:
+
+1. Initialize the input arena of size NxN individual cells
+
+2. Create an array w to list all valid states
+
+3. Initialize a boolean array for each cells with has the same size as array w the that indicates whether the state is valid or forbidden. 
+
+4. Pick an arbitrary cell and randomly set it to a valid state. Usually, cells with low number of possible states are prioritized to prevent conflicts.
+
+5. Recalculate valid states for all cells.
+
+6. Repeat from step 4 until all cells has defined state.
+

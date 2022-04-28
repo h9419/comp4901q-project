@@ -1,0 +1,18 @@
+\subsection{Theoretical Background}
+The specific set of rules implemented in this project which limits the side effects to neighboring cells. This rule set is common in game terrain generation but it is also popular because of its locality benefits. 
+By locality, it means that non-determinate cells encapsulated by determinate cells will not be restricted further by cells outside of the walls. 
+It also means that a map can be divided into smaller sections and allow each processes to handle their local area without depending their calculation on results from other processes. This project will try to take advantage of this task division method to spread the task to all processes in the MPI-connected system.
+
+Moreover, the locality also limits the number of cells to update since their restrictions will be based on cells with Manhattan distance of 9 or below, which means that all cells with the newly defined cell can be updated simultaneously without depending on calculations from the previous updates. This project will try to take advantage of this and process all cell updates using parallel CUDA cores.
+
+
+\subsection{Implementation Details}
+
+First, the map is divided into strips of height 9. The top horizontal line of each strip are independent from the top horizontal line of other strips because the Manhattan distance is above the limit of the propagation in this rule set.
+Thus, the first row of each strip are independently initialized on different processes in the MPI system. Moreover, collapsing cells in a straight line can delay propagation of non-forbidden states in neighboring cells to after the entire edge is initialized.
+
+Then, each process will propagate their top edge to the process responsible for the strip above. This allows for each process to have a localized copy of the problem with a smaller problem size, yet all of them are compatible since the connecting edges are synchronized. Each process have to propagate the constraints from both top and bottom edges before starting to fill in the remaining cells accordingly. 
+
+MPI processes performs calculation on CUDA-enabled GPU for parallel constraints propagation. This can be done because constraint propagation are fitting for SIMD architecture. This is akin to a kernel in convolution but has a diamond shape because it is created by limiting Manhattan distance. When rotated 45 degree, the kernel can fit inside a grid of n by 2n+1 where n is the maximum Manhattan distance. However, a larger grid of threads can be initialized instead so as to simplify the indexing calculation. 
+
+Lastly, the master rank in the MPI system will collect the strips and combine them into one image which can then be verified or optionally saved to a bitmap file.

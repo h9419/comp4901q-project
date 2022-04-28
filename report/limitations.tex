@@ -1,0 +1,4 @@
+
+This implementation of the Wave Function Collapse algorithm has two main limitations. First is the restrictive rules. Since the algorithm is designed to optimize for the specific set of rules, it cannot be easily applied to speed up other rule sets. In other words, the proposed solutions are not general to all Wave Function Collapse algorithms. 
+
+The second weakness of this algorithm is weak scaling. The algorithm can divide the computationally heavy task into smaller tasks for parallelization, but the problem size is still decided by the user and it limits the speedup in large-scale infrastructures such as MPI+CUDA clusters that this project is targetting.
