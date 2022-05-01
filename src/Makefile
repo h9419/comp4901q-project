@@ -11,9 +11,9 @@ wfc: wfc.cu
 
 
 test: $(BINS)
-	@mpiexec -n 4 --hostfile hostfile -x LD_LIBRARY_PATH=/usr/local/software/openmpi/lib:$LD_LIBRARY_PATH ./wfc 1024 test
+	@mpiexec -n 4 --hostfile hostfile -x LD_LIBRARY_PATH=/usr/local/software/openmpi/lib:$LD_LIBRARY_PATH ./wfc 2048 test_mpi_cuda
 save: $(BINS)
-	@mpiexec -n 4 --hostfile hostfile -x LD_LIBRARY_PATH=/usr/local/software/openmpi/lib:$LD_LIBRARY_PATH ./wfc 64 save
+	@mpiexec -n 4 --hostfile hostfile -x LD_LIBRARY_PATH=/usr/local/software/openmpi/lib:$LD_LIBRARY_PATH ./wfc 128 save
 
 clean:
 	-rm multiple
