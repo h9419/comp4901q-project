@@ -15,7 +15,13 @@
 #include <algorithm>
 #include <random>
 
-void sequentialPropagateWFC(const int &map_size, const int &x, const int &y,
+
+#define MAX_MANHATTAN_DISTANCE 9
+#define MAX(x,y) (((x) > (y)) ? (x) : (y))
+#define MIN(x,y) (((x) < (y)) ? (x) : (y))
+#define ABS(x) ((x) < 0 ? (0 - (x)) : (x))
+
+void sequentialPropagateWFC(const int &height, const int &width, const int &x, const int &y,
                   std::vector<std::vector<int8_t>> *map,
                   std::vector<std::vector<int8_t>> *lower_bound,
                   std::vector<std::vector<int8_t>> *upper_bound) {
@@ -24,16 +30,16 @@ void sequentialPropagateWFC(const int &map_size, const int &x, const int &y,
   for (int i=-9; i <= 9; ++i){
     for (int j=-9; j <= 9; ++j){
       // filter by manhattan distance
-      int manhattan_distance = abs(i) + abs(j);
+      int manhattan_distance = ABS(i) + ABS(j);
       if (manhattan_distance <= 9) {
         int xpos = x + i;
         int ypos = y + j;
         // map boundary
-        if (xpos >= 0 && xpos < map_size && ypos >= 0 && ypos < map_size) {
+        if (xpos >= 0 && xpos < height && ypos >= 0 && ypos < width) {
           // non-determinate
           if (map[0][xpos][ypos] == -1) {
-            lower_bound[0][xpos][ypos] = std::max((int)lower_bound[0][xpos][ypos], collapsed_value - manhattan_distance);
-            upper_bound[0][xpos][ypos] = std::min((int)upper_bound[0][xpos][ypos], collapsed_value + manhattan_distance);
+            lower_bound[0][xpos][ypos] = MAX((int)lower_bound[0][xpos][ypos], collapsed_value - manhattan_distance);
+            upper_bound[0][xpos][ypos] = MIN((int)upper_bound[0][xpos][ypos], collapsed_value + manhattan_distance);
             // only 1 state left, set state
             if (lower_bound[0][xpos][ypos] == upper_bound[0][xpos][ypos]) {
               map[0][xpos][ypos] = upper_bound[0][xpos][ypos];
@@ -45,12 +51,11 @@ void sequentialPropagateWFC(const int &map_size, const int &x, const int &y,
   }
 }
 
-void sequentialWFC(const int &map_size, std::vector<std::vector<int8_t>> *map) {
+void sequentialWFC(const int &height, const int &width, std::vector<std::vector<int8_t>> *map) {
   std::vector<std::vector<int8_t>> lower_bound, upper_bound;
-  lower_bound = std::vector<std::vector<int8_t>>(map_size, std::vector<int8_t>(map_size,0));
-  upper_bound = std::vector<std::vector<int8_t>>(map_size, std::vector<int8_t>(map_size,9));
-  (*map) = std::vector<std::vector<int8_t>>(map_size, std::vector<int8_t>(map_size,-1));
-  srand(time(NULL));
+  lower_bound = std::vector<std::vector<int8_t>>(height, std::vector<int8_t>(width,0));
+  upper_bound = std::vector<std::vector<int8_t>>(height, std::vector<int8_t>(width,9));
+  (*map) = std::vector<std::vector<int8_t>>(height, std::vector<int8_t>(width,-1));
 
   // big primes
   // https://stackoverflow.com/a/18994414
@@ -59,16 +64,54 @@ void sequentialWFC(const int &map_size, std::vector<std::vector<int8_t>> *map) {
   unsigned int x = rand();
   unsigned int y = rand();
   // go through the map to set all cells
-  for (int i=0; i<map_size; ++i) {
-    y = (y + BIG_PRIME_Y) % map_size;
-    for (int j=0; j<map_size; ++j) {
-      x = (x + BIG_PRIME_X) % map_size;
-      y = (y + BIG_PRIME_Y) % map_size;
+  for (int i=0; i<height; ++i) {
+    x = (x + BIG_PRIME_X) % height;
+    for (int j=0; j<width; ++j) {
+      x = (x + BIG_PRIME_X) % height;
+      y = (y + BIG_PRIME_Y) % width;
       if ((*map)[x][y] == -1) {
         // set a cell randomly;
-        (*map)[x][y] = lower_bound[x][y] + abs(rand() % (1 + upper_bound[x][y] - lower_bound[x][y]));
+        (*map)[x][y] = lower_bound[x][y] + ABS(rand() % (1 + upper_bound[x][y] - lower_bound[x][y]));
         // propagate changes
-        sequentialPropagateWFC(map_size, x, y, map, &lower_bound, &upper_bound);
+        sequentialPropagateWFC(height, width, x, y, map, &lower_bound, &upper_bound);
+      }
+    }
+  }
+}
+
+
+void constraintedSequentialWFC(const int height, const int width, std::vector<std::vector<int8_t>> *map, std::vector<int8_t> &top, std::vector<int8_t> &bottom) {
+  std::vector<std::vector<int8_t>> lower_bound, upper_bound;
+  lower_bound = std::vector<std::vector<int8_t>>(height, std::vector<int8_t>(width,0));
+  upper_bound = std::vector<std::vector<int8_t>>(height, std::vector<int8_t>(width,9));
+  map[0] = std::vector<std::vector<int8_t>>(height, std::vector<int8_t>(width,-1));
+  map[0][0] = top;
+  map[0][height-1] = bottom;
+  
+  // update according to the constraints
+  for (int i=0; i<height; i += (height-1)) {
+    for (int j=0; j<width; ++j) {
+      sequentialPropagateWFC(height, width, i, j, map, &lower_bound, &upper_bound);
+    }
+  }
+
+  // big primes
+  // https://stackoverflow.com/a/18994414
+  const unsigned int BIG_PRIME_X = 74207281;
+  const unsigned int BIG_PRIME_Y = 74207279;
+  unsigned int x = rand();
+  unsigned int y = rand();
+  // go through the map to set all cells
+  for (int i=0; i<height; ++i) {
+    x = (x + BIG_PRIME_X) % height;
+    for (int j=0; j<width; ++j) {
+      x = (x + BIG_PRIME_X) % height;
+      y = (y + BIG_PRIME_Y) % width;
+      if ((*map)[x][y] == -1) {
+        // set a cell randomly;
+        (*map)[x][y] = lower_bound[x][y] + ABS(rand() % (1 + upper_bound[x][y] - lower_bound[x][y]));
+        // propagate changes
+        sequentialPropagateWFC(height, width, x, y, map, &lower_bound, &upper_bound);
       }
     }
   }
@@ -125,13 +168,13 @@ bool TestAnswerCorrectness(const int &map_size, const std::vector<std::vector<in
   }
   for (uint i = 0; i < map_size; i++) {
     for (uint j = 0; j < map_size; j++) {
-      if (i > 0 && abs(answer[i][j] - answer[i-1][j]) > 1)
+      if (i > 0 && ABS(answer[i][j] - answer[i-1][j]) > 1)
           return false;
-      if (i < 9 && abs(answer[i][j] - answer[i+1][j]) > 1)
+      if (i < 9 && ABS(answer[i][j] - answer[i+1][j]) > 1)
           return false;
-      if (j > 0 && abs(answer[i][j] - answer[i][j-1]) > 1)
+      if (j > 0 && ABS(answer[i][j] - answer[i][j-1]) > 1)
           return false;
-      if (j < 9 && abs(answer[i][j] - answer[i][j+1]) > 1)
+      if (j < 9 && ABS(answer[i][j] - answer[i][j+1]) > 1)
           return false;
     }
   }
@@ -384,6 +427,7 @@ int main(int argc, char **argv) {
   MPI_Comm_size(MPI_COMM_WORLD, &number_of_processes);
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   double parallel_start_time;
+  srand(time(NULL) + rank);
   TASK task;
   int map_size;
   std::vector<std::vector<int>> A;
@@ -416,15 +460,48 @@ int main(int argc, char **argv) {
   // ====    Write your implementation below this line    ====
   // ==============================================================
   // ==============================================================
-
-  // // propagate problem parameters
-  // int parameters[4] = {n, m, number_of_block_in_a_grid, number_of_thread_in_a_block};
-  // MPI_Bcast(parameters, 4, MPI_INT, 0, MPI_COMM_WORLD);
-  // n = parameters[0];
-  // m = parameters[1];
-  // number_of_block_in_a_grid = parameters[2];
-  // number_of_thread_in_a_block = parameters[3];
   
+  MPI_Bcast(&map_size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+  int row_per_process = MAX(9, (map_size + number_of_processes - 1) / number_of_processes);
+
+  // generate border edge to pass around
+  std::vector<int8_t> top_border, bottom_border;
+  std::vector<std::vector<int8_t>> local_answer;
+  top_border.resize(map_size);
+  bottom_border.resize(map_size);
+  top_border[0] = rand() % 10;
+  for (int i=1; i<map_size; ++i) {
+    if (top_border[i-1] == 0)
+      top_border[i] = top_border[i-1] + (rand() % 2);
+    else if (top_border[i-1] == 9)
+      top_border[i] = top_border[i-1] + (rand() % 2) - 1;
+    else 
+      top_border[i] = top_border[i-1] + (rand() % 3) - 1;
+  }
+  // send the edge around in a ring
+  MPI_Request sendRequest, recvRequest;
+  MPI_Isend(top_border.data(), map_size, MPI_INT8_T, (rank + number_of_processes - 1) % number_of_processes, 0, MPI_COMM_WORLD, &sendRequest);
+  MPI_Irecv(bottom_border.data(), map_size, MPI_INT8_T, (rank + 1) % number_of_processes, 0, MPI_COMM_WORLD, &recvRequest);
+  MPI_Wait(&sendRequest, MPI_STATUS_IGNORE);
+  MPI_Wait(&recvRequest, MPI_STATUS_IGNORE);
+  constraintedSequentialWFC(row_per_process, map_size, &local_answer, top_border, bottom_border);
+  
+
+  if (rank == 0) {
+    parallel_answer = local_answer;
+    parallel_answer.resize(map_size);
+    for (int h = row_per_process; h < map_size; ++h) {
+      parallel_answer[h].resize(map_size);
+      MPI_Recv(parallel_answer[h].data(), map_size, MPI_INT8_T, h / row_per_process, 0, MPI_COMM_WORLD, NULL);
+    }
+  }
+  else {
+    int start = row_per_process * rank;
+    int iter = MIN(row_per_process * (rank+1), map_size) - start;
+    for (int h = 0; h < iter; ++h) {
+      MPI_Send(local_answer[h].data(), map_size, MPI_INT8_T, 0, 0, MPI_COMM_WORLD);
+    }
+  }
   // // prepare buffer for MPI transfers
   // parallel_answer.resize(n);
   // if (rank == 0) {
@@ -463,19 +540,26 @@ int main(int argc, char **argv) {
     double parallel_end_time = MPI_Wtime();
     double parallel_running_time = parallel_end_time - parallel_start_time;
     std::cout << "parallel running time:" << parallel_running_time << std::endl;
-    std::vector<std::vector<int8_t>> sequential_answer;
-    double sequential_start_time = MPI_Wtime();
-
-    sequentialWFC(map_size, &sequential_answer);
-
-    double sequential_end_time = MPI_Wtime();
-    double sequential_running_time =
-        sequential_end_time - sequential_start_time;
-    std::cout << "sequential running time:" << sequential_running_time
-              << std::endl;
-    std::cout << "speed up:" <<  sequential_running_time/parallel_running_time
-              << std::endl;
     if (task == TEST) {
+      if (TestAnswerCorrectness(map_size, parallel_answer)) {
+        std::cout << "Correct parallel solution!" << std::endl;
+      }
+      else {
+        std::cout << "Incorrect parallel solution" << std::endl;
+      }
+      std::vector<std::vector<int8_t>> sequential_answer;
+      double sequential_start_time = MPI_Wtime();
+
+      sequentialWFC(map_size, map_size, &sequential_answer);
+
+      double sequential_end_time = MPI_Wtime();
+      double sequential_running_time =
+          sequential_end_time - sequential_start_time;
+      std::cout << "sequential running time:" << sequential_running_time
+                << std::endl;
+      std::cout << "speed up:" <<  sequential_running_time/parallel_running_time
+                << std::endl;
+      
       if (TestAnswerCorrectness(map_size, sequential_answer)) {
         std::cout << "Correct serial solution!" << std::endl;
       }
@@ -484,7 +568,7 @@ int main(int argc, char **argv) {
       }
     }
     else { // SAVE heightmap in bitmap
-      SaveImage(map_size, sequential_answer);
+      SaveImage(map_size, parallel_answer);
     }
  
     // for (int i=0;i<map_size;++i){
