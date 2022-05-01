@@ -21,6 +21,8 @@
 #define MIN(x,y) (((x) < (y)) ? (x) : (y))
 #define ABS(x) ((x) < 0 ? (0 - (x)) : (x))
 
+
+// single core implementation
 void sequentialPropagateWFC(const int &height, const int &width, const int &x, const int &y,
                   std::vector<std::vector<int>> *map,
                   std::vector<std::vector<int>> *lower_bound,
@@ -51,6 +53,7 @@ void sequentialPropagateWFC(const int &height, const int &width, const int &x, c
   }
 }
 
+// single core implementation
 void sequentialWFC(const int &height, const int &width, std::vector<std::vector<int>> *map) {
   std::vector<std::vector<int>> lower_bound, upper_bound;
   lower_bound = std::vector<std::vector<int>>(height, std::vector<int>(width,0));
@@ -79,7 +82,7 @@ void sequentialWFC(const int &height, const int &width, std::vector<std::vector<
   }
 }
 
-
+// single core implementation to be used with MPI
 void constraintedSequentialWFC(const int height, const int width, std::vector<std::vector<int>> *map, std::vector<int> &top, std::vector<int> &bottom) {
   std::vector<std::vector<int>> lower_bound, upper_bound;
   lower_bound = std::vector<std::vector<int>>(height, std::vector<int>(width,0));
@@ -117,6 +120,7 @@ void constraintedSequentialWFC(const int height, const int width, std::vector<st
   }
 }
 
+// Test whether the answer follows the set of rules
 bool TestAnswerCorrectness(const int &map_size, const std::vector<std::vector<int>> &answer) {
   if (answer.size() != map_size) {
     std::cout << "Error! The answer size is incorrect" << std::endl;
@@ -143,8 +147,8 @@ bool TestAnswerCorrectness(const int &map_size, const std::vector<std::vector<in
   return true;
 }
 
-// This uses raw encoding with no compression or look up table because I simply needed something
-// that works quickly and is compatible with standard image formats for it to be imported
+// This method saves the table to "saved_result.bmp" in your current directory
+// the allows the generated map to be exported into other programs
 void SaveImage(const int &map_size, const std::vector<std::vector<int>> &answer) {
   const int BYTES_PER_PIXEL = 3; // RGB
   const int FILE_HEADER_SIZE = 14;
@@ -213,7 +217,7 @@ void SaveImage(const int &map_size, const std::vector<std::vector<int>> &answer)
   fd.close();
 }
 
-
+// set initial values for allocated memory
 __global__ void cudaInitMemory(int* d_map, int* d_lower_bound, int* d_upper_bound, int size) {
   for (int i = blockDim.x * blockIdx.x + threadIdx.x;
         i < size;
@@ -225,7 +229,7 @@ __global__ void cudaInitMemory(int* d_map, int* d_lower_bound, int* d_upper_boun
   }
 }
 
-
+// kernel that recieves a random number to determin collapsed value and propagate changes
 // threads in MAX_MANHATTAN_DISTANCE by MAX_MANHATTAN_DISTANCE
 __global__ void randomPropagateWFC(const int width,
                                   const int height,
@@ -260,6 +264,7 @@ __global__ void randomPropagateWFC(const int width,
   }
 }
 
+// kernel that recieves the collapsed value and propagate changes
 // threads in MAX_MANHATTAN_DISTANCE by MAX_MANHATTAN_DISTANCE
 __global__ void setAndPropagateWFC(const int width,
                                   const int height,
@@ -290,6 +295,7 @@ __global__ void setAndPropagateWFC(const int width,
   }
 }
 
+// this method is single process, single GPU version of the wave function collapse algorithm
 void cudaWFC(const int height, const int width, std::vector<std::vector<int>> *map) {
   const dim3 threads(MAX_MANHATTAN_DISTANCE * 2 + 1, MAX_MANHATTAN_DISTANCE * 2 + 1, 1);
   int *d_map;
@@ -327,6 +333,7 @@ void cudaWFC(const int height, const int width, std::vector<std::vector<int>> *m
   cudaFree(d_upper_bound);
 }
 
+// this is the single GPU version of the wave function collapse algorithm to be used inside MPI
 void constraintedCudaWFC(const int height, const int width, std::vector<std::vector<int>> *map, std::vector<int> &top, std::vector<int> &bottom) {
   const dim3 threads(MAX_MANHATTAN_DISTANCE * 2 + 1, MAX_MANHATTAN_DISTANCE * 2 + 1, 1);
   int *d_map;
@@ -370,158 +377,7 @@ void constraintedCudaWFC(const int height, const int width, std::vector<std::vec
   cudaFree(d_upper_bound);
 }
 
-// // this function performs <dest> = transpose(matmul(<matrix>, transpose(<buffer>)))
-// // buffer is already transposed for better performance
-// __global__ void matrix_mul_transpose(int *matrix, int *dest, int *buffer, int n) {
-//   int index = blockDim.x * blockIdx.x + threadIdx.x;
-//   int gridsize = blockDim.x * gridDim.x;
-  
-//   for (int ind=index; ind<n*n; ind+=gridsize) {
-//     int i = ind / n;
-//     int j = ind % n;
-//     int tmp = 0;
-//     for (int k=0; k<n; ++k) {
-//       tmp ^= matrix[j*n+k] & buffer[i*n+k];
-//     }
-//     dest[ind] = tmp;
-//   }
-// }
-// // this function performs <dest> += matmul(<matrix>, transpose(<buffer>)))
-// // buffer is already transposed for better performance
-// __global__ void matrix_mul_add(int *matrix, int *dest, int *buffer, int n) {
-//   int index = blockDim.x * blockIdx.x + threadIdx.x;
-//   int gridsize = blockDim.x * gridDim.x;
-  
-//   for (int ind=index; ind<n*n; ind+=gridsize) {
-//     int i = ind / n;
-//     int j = ind % n;
-//     int tmp = 0;
-//     for (int k=0; k<n; ++k) {
-//       tmp ^= matrix[i*n+k] & buffer[j*n+k];
-//     }
-//     dest[ind] ^= tmp;
-//   }
-// }
-
-// // this function performs <dest> = transpose(matmul(<matrix>, transpose(<buffer>)))
-// // buffer is already transposed for better performance
-// __global__ void matrix_transpose(int *matrix, int *dest, int n) {
-//   int index = blockDim.x * blockIdx.x + threadIdx.x;
-//   int gridsize = blockDim.x * gridDim.x;
-  
-//   for (int ind=index; ind<n*n; ind+=gridsize) {
-//     int i = ind / n;
-//     int j = ind % n;
-//     dest[ind] = matrix[j*n+i];
-//   }
-// }
-
-
-// void MPI_CUDA_Calculation(const int &n,
-//                           const int &m,
-//                           const std::vector<std::vector<int>> &A,
-//                           const std::vector<std::vector<int>> &B,
-//                           std::vector<std::vector<int>> *C,
-//                           const int &rank,
-//                           const int &num_process,
-//                           const int &number_of_block_in_a_grid,
-//                           const int &number_of_thread_in_a_block) {
-//   int *d_A;
-//   int *d_B;
-//   int *d_B_power_num_process;
-//   int *d_B_power_rank_transposed;
-//   int *d_C;
-
-//   cudaMalloc((void **)&d_A, n * n * sizeof(int));
-//   cudaMalloc((void **)&d_B, n * n * sizeof(int));
-//   cudaMalloc((void **)&d_B_power_num_process, n * n * sizeof(int));
-//   cudaMalloc((void **)&d_B_power_rank_transposed, n * n * sizeof(int));
-//   cudaMalloc((void **)&d_C, n * n * sizeof(int));
-
-//   // copy matrix to GPU
-//   for (int i=0; i<n; ++i) {
-//     cudaMemcpy(d_A + n * i, A[i].data(), n * sizeof(int), cudaMemcpyHostToDevice);
-//     cudaMemcpy(d_B + n * i, B[i].data(), n * sizeof(int), cudaMemcpyHostToDevice);
-//   }
-//   // calculate powers of B
-//   {
-//     int* cursor;
-//     int* buffer;
-//     // odd number needs to setup identity matrix in num_process
-//     if (rank & 1) {
-//       cursor = d_B_power_num_process;
-//       buffer = d_B_power_rank_transposed;
-//     }
-//     else {
-//       cursor = d_B_power_rank_transposed;
-//       buffer = d_B_power_num_process;
-//     }
-//     // init identity
-//     identity_matrix<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(cursor, n);
-
-//     // calculate d_B_power_rank_transposed
-//     for (int t = 0; t<rank; t++) {
-//       matrix_mul_transpose<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_B, buffer, cursor, n);
-//       int* tmp = buffer;
-//       buffer = cursor;
-//       cursor = tmp;
-//     }
-//     if (num_process < m) {
-//       // calculate d_B_power_num_process
-//       if ((num_process - rank) & 1) {
-//         matrix_mul_transpose<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_B, d_C, cursor, n);
-//         cursor = d_C;
-//       }
-//       else {
-//         matrix_mul_transpose<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_B, buffer, cursor, n);
-//         cursor = buffer;
-//         buffer = d_C;
-//       }
-
-//       for (int t = rank+1; t<num_process; t++) {
-//         matrix_mul_transpose<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_B, buffer, cursor, n);
-//         int* tmp = buffer;
-//         buffer = cursor;
-//         cursor = tmp;
-//       }
-//       // B = B_power_num_process transposed
-//       matrix_transpose<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(cursor, buffer, n);
-//     }
-//   }
-//   // calculate A mat mul d_B_power_rank_transposed
-//   zero_matrix<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_C, n);
-
-//   for (int t = rank; t<=m; t+=num_process) {
-//     matrix_mul_add<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_A, d_C, d_B_power_rank_transposed, n);
-//     // increment power
-//     if ((t + num_process) <= m) {
-//       matrix_mul_transpose<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_B_power_num_process, d_B, d_B_power_rank_transposed, n);
-//       int* tmp = d_B_power_rank_transposed;
-//       d_B_power_rank_transposed = d_B;
-//       d_B = tmp;
-//     }
-//   }
-//     // identity_matrix<<<number_of_block_in_a_grid, number_of_thread_in_a_block>>>(d_C, n);
-
-//   // copy result back to CPU
-//   (*C).resize(n);
-//   for (int i=0; i<n; ++i) {
-//     (*C)[i].resize(n);
-//     cudaMemcpy((*C)[i].data(), d_C + n * i, n * sizeof(int), cudaMemcpyDeviceToHost);
-//   }
-  
-//   cudaFree(d_A);
-//   cudaFree(d_B);
-//   cudaFree(d_C);
-//   cudaFree(d_B_power_num_process);
-//   cudaFree(d_B_power_rank_transposed);
-// }
-
-// ==============================================================
-// ====    Write your functions above this line    ====
-// ==============================================================
-// ==============================================================
-
+// this variable store the command parsed
 enum TASK{TEST_MPI, TEST_CUDA, TEST_MPI_CUDA, SAVE};
 
 int main(int argc, char **argv) {
@@ -595,8 +451,10 @@ int main(int argc, char **argv) {
     MPI_Irecv(bottom_border.data(), map_size, MPI_INT, (rank + 1) % number_of_processes, 0, MPI_COMM_WORLD, &recvRequest);
     MPI_Wait(&sendRequest, MPI_STATUS_IGNORE);
     MPI_Wait(&recvRequest, MPI_STATUS_IGNORE);
+    // MPI-only version without GPU acceleration
     if (task == TEST_MPI)
       constraintedSequentialWFC(row_per_process, map_size, &local_answer, top_border, bottom_border);
+    // MPI+CUDA version with GPU acceleration
     else
       constraintedCudaWFC(row_per_process, map_size, &local_answer, top_border, bottom_border);
 
@@ -625,6 +483,7 @@ int main(int argc, char **argv) {
   MPI_Barrier(MPI_COMM_WORLD);
   if (rank == 0) {
     double parallel_end_time = MPI_Wtime();
+    // single node testing single GPU
     if (task == TEST_CUDA) {
       parallel_start_time = MPI_Wtime();
       cudaWFC(map_size, map_size, &parallel_answer);
@@ -671,13 +530,6 @@ int main(int argc, char **argv) {
         std::cout << "Invalid serial solution" << std::endl;
       }
     }
- 
-    // for (int i=0;i<map_size;++i){
-    //   for (int j=0;j<map_size;++j){
-    //     std::cout << (int)sequential_answer[i][j] << " ";
-    //   }
-    //   std::cout << std::endl;
-    // }
   }
   MPI_Finalize();
   return 0;
