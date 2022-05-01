@@ -16,3 +16,6 @@ Then, each process will propagate their top edge to the process responsible for 
 MPI processes performs calculation on CUDA-enabled GPU for parallel constraints propagation. This can be done because constraint propagation are fitting for SIMD architecture. This is akin to a kernel in convolution but has a diamond shape because it is created by limiting Manhattan distance. When rotated 45 degree, the kernel can fit inside a grid of n by 2n+1 where n is the maximum Manhattan distance. However, a larger grid of threads can be initialized instead so as to simplify the indexing calculation. 
 
 Lastly, the master rank in the MPI system will collect the strips and combine them into one image which can then be verified or optionally saved to a bitmap file.
+
+
+The feature to export the resultant map into a 2D image allowed visual confirmation of the correctness of the program on top of the verification implemented that only checks whether the map complies with the rules. This is an important feature not only to allow the computation result to be saved, but also debug versions of the program where a matrix of all zero was returned which can pass the verification but is not the desired result.
