@@ -233,16 +233,18 @@ __global__ void cudaInitMemory(int* d_map, int* d_lower_bound, int* d_upper_boun
 // threads in MAX_MANHATTAN_DISTANCE by MAX_MANHATTAN_DISTANCE
 __global__ void randomPropagateWFC(const int width,
                                   const int height,
-                                  const int x,
-                                  const int y,
+                                  int x,
+                                  int y,
                                   const unsigned int random,
                                   int* map,
                                   int* lower_bound,
                                   int* upper_bound)
 {
-  if (map[x * width + y] != -1)
+  x += blockDim.x * blockIdx.x;
+  y += blockDim.y * blockIdx.y;
+  if (x >= height || y >= width || map[x * width + y] != -1)
     return;
-  int collapsed_value = lower_bound[x * width + y] + random % (upper_bound[x * width + y] - lower_bound[x * width + y] + 1);
+  int collapsed_value = lower_bound[x * width + y] + (random + x + y * height) % (upper_bound[x * width + y] - lower_bound[x * width + y] + 1);
   int i = threadIdx.x - MAX_MANHATTAN_DISTANCE;
   int j = threadIdx.y - MAX_MANHATTAN_DISTANCE;
   int manhattan_distance = ABS(i) + ABS(j);
@@ -268,12 +270,15 @@ __global__ void randomPropagateWFC(const int width,
 // threads in MAX_MANHATTAN_DISTANCE by MAX_MANHATTAN_DISTANCE
 __global__ void setAndPropagateWFC(const int width,
                                   const int height,
-                                  const int x,
-                                  const int y,
-                                  const int collapsed_value,
+                                  int x,
+                                  int y,
                                   int* map,
                                   int* lower_bound,
                                   int* upper_bound) {
+  y += blockDim.y * blockIdx.y;
+  if (y >= width)
+    return;
+  const int collapsed_value = map[x * width + y];
   int i = threadIdx.x - MAX_MANHATTAN_DISTANCE;
   int j = threadIdx.y - MAX_MANHATTAN_DISTANCE;
   int manhattan_distance = ABS(i) + ABS(j);
@@ -298,6 +303,7 @@ __global__ void setAndPropagateWFC(const int width,
 // this method is single process, single GPU version of the wave function collapse algorithm
 void cudaWFC(const int height, const int width, std::vector<std::vector<int>> *map) {
   const dim3 threads(MAX_MANHATTAN_DISTANCE * 2 + 1, MAX_MANHATTAN_DISTANCE * 2 + 1, 1);
+  const dim3 blocks((height + threads.x - 1) / threads.x, (width + threads.y - 1) / threads.y, 1);
   int *d_map;
   int *d_lower_bound;
   int *d_upper_bound;
@@ -311,13 +317,13 @@ void cudaWFC(const int height, const int width, std::vector<std::vector<int>> *m
   unsigned int x = rand();
   unsigned int y = rand();
   // go through the map to set all cells
-  for (int i=0; i<height; ++i) {
-    x = (x + BIG_PRIME_X) % height;
-    for (int j=0; j<width; ++j) {
-      x = (x + BIG_PRIME_X) % height;
-      y = (y + BIG_PRIME_Y) % width;
+  for (int i=0; i<threads.x; ++i) {
+    x = (x + BIG_PRIME_X) % threads.x;
+    for (int j=0; j<threads.y; ++j) {
+      x = (x + BIG_PRIME_X) % threads.x;
+      y = (y + BIG_PRIME_Y) % threads.y;
       // set a cell randomly and propagate changes
-      randomPropagateWFC<<<1, threads>>>(width, height, x, y, rand(),
+      randomPropagateWFC<<<blocks, threads>>>(width, height, x, y, rand(),
                                       d_map, d_lower_bound, d_upper_bound);
     }
   }
@@ -336,6 +342,7 @@ void cudaWFC(const int height, const int width, std::vector<std::vector<int>> *m
 // this is the single GPU version of the wave function collapse algorithm to be used inside MPI
 void constraintedCudaWFC(const int height, const int width, std::vector<std::vector<int>> *map, std::vector<int> &top, std::vector<int> &bottom) {
   const dim3 threads(MAX_MANHATTAN_DISTANCE * 2 + 1, MAX_MANHATTAN_DISTANCE * 2 + 1, 1);
+  dim3 blocks(1, (width + threads.y - 1) / threads.y, 1);
   int *d_map;
   int *d_lower_bound;
   int *d_upper_bound;
@@ -343,25 +350,28 @@ void constraintedCudaWFC(const int height, const int width, std::vector<std::vec
   cudaMalloc((void **)&d_lower_bound, height * width * sizeof(int));
   cudaMalloc((void **)&d_upper_bound, height * width * sizeof(int));
   cudaInitMemory<<<256,256>>>(d_map, d_lower_bound, d_upper_bound, height * width);
-  for (int j=0; j<width; ++j) {
-    setAndPropagateWFC<<<1, threads>>>(width, height, 0, j, top[j],
+  cudaMemcpy(d_map, top.data(), width * sizeof(int), cudaMemcpyHostToDevice);
+  cudaMemcpy(d_map + ((height - 1) * width), bottom.data(), width * sizeof(int), cudaMemcpyHostToDevice);
+  for (int j=0; j<threads.y; ++j) {
+    setAndPropagateWFC<<<blocks, threads>>>(width, height, 0, j,
                                       d_map, d_lower_bound, d_upper_bound);
-    setAndPropagateWFC<<<1, threads>>>(width, height, height-1, j, bottom[j],
+    setAndPropagateWFC<<<blocks, threads>>>(width, height, height-1, j,
                                       d_map, d_lower_bound, d_upper_bound);
   }
+  blocks.x = (height + threads.x - 1) / threads.x;
   
   const unsigned int BIG_PRIME_X = 74207281;
   const unsigned int BIG_PRIME_Y = 74207279;
   unsigned int x = rand();
   unsigned int y = rand();
   // go through the map to set all cells
-  for (int i=0; i<height; ++i) {
-    x = (x + BIG_PRIME_X) % height;
-    for (int j=0; j<width; ++j) {
-      x = (x + BIG_PRIME_X) % height;
-      y = (y + BIG_PRIME_Y) % width;
+  for (int i=0; i<threads.x; ++i) {
+    x = (x + BIG_PRIME_X) % threads.x;
+    for (int j=0; j<threads.y; ++j) {
+      x = (x + BIG_PRIME_X) % threads.x;
+      y = (y + BIG_PRIME_Y) % threads.y;
       // set a cell randomly and propagate changes
-      randomPropagateWFC<<<1, threads>>>(width, height, x, y, rand(),
+      randomPropagateWFC<<<blocks, threads>>>(width, height, x, y, rand(),
                                       d_map, d_lower_bound, d_upper_bound);
     }
   }
